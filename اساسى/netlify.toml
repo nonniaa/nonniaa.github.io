@@ -1,0 +1,13 @@
+# إعدادات Netlify — مفيش build، الموقع بيترفع زي ما هو
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/admin.html"
+  [headers.values]
+    X-Robots-Tag = "noindex"
