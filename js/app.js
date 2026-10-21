@@ -4,7 +4,16 @@
 const root = document.documentElement;
 root.classList.add('dark'); root.setAttribute('dir', 'rtl'); root.setAttribute('lang', 'ar');
 
+const THEMES = {
+  noir:  { name: 'أسود وذهبي', bg: '#0A0A0A', fg: '#F4F1EC', muted: '#8F8A82', gold: '#D4B47A' },
+  wine:  { name: 'نبيتي',      bg: '#130B0D', fg: '#F7EEEF', muted: '#A08C90', gold: '#D98C8C' },
+  olive: { name: 'زيتوني',     bg: '#0C0E0A', fg: '#EEF1E8', muted: '#8E9585', gold: '#B5C48E' },
+  navy:  { name: 'كحلي وفضي',  bg: '#0A0E16', fg: '#EEF2F8', muted: '#8B93A5', gold: '#C5D0E0' },
+  sand:  { name: 'بيج فاتح',   bg: '#F3EEE6', fg: '#1E1A15', muted: '#776E63', gold: '#8C5E34' },
+  blush: { name: 'وردي فاتح',  bg: '#F8EEEE', fg: '#2A1A1D', muted: '#857176', gold: '#B4566A' }
+};
 let S = JSON.parse(JSON.stringify(window.STORE_DATA));
+S.theme = Object.assign({ bg: THEMES.noir.bg, fg: THEMES.noir.fg, muted: THEMES.noir.muted, gold: THEMES.noir.gold }, S.theme || {});
 const SAVED_JSON = JSON.stringify(S);
 
 // ---------- helpers ----------
@@ -77,7 +86,7 @@ function appHTML() {
   return `
   <div class="grain" aria-hidden="true"></div>
   ${ann.length ? `<div class="relative z-10 overflow-hidden border-b border-line text-[13px] text-muted"><div class="marquee flex whitespace-nowrap gap-12 py-2 w-max">${annRow}${annRow}${annRow}</div></div>` : ''}
-  <header class="sticky z-40 border-b border-line" style="top: env(safe-area-inset-top, 0px); background: rgba(10,10,10,.72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
+  <header class="sticky z-40 border-b border-line" style="top: env(safe-area-inset-top, 0px); background: color-mix(in srgb, var(--bg) 75%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
     <div class="gutter mx-auto max-w-7xl flex items-center gap-4 h-[68px]">
       <a href="#top" class="flex items-center gap-2 shrink-0 min-w-0">
         ${src(S.logo) ? `<img src="${src(S.logo)}" alt="${esc(S.brand)}" class="h-10 w-auto max-w-[140px] object-contain">`
@@ -96,7 +105,7 @@ function appHTML() {
         <button data-act="fav-filter" class="relative p-2.5 rounded-full hover:bg-white/5" aria-label="المفضلة"><i data-lucide="heart" class="w-5 h-5"></i>
           <span id="favCount" class="num absolute -top-0.5 -left-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-fg text-ink text-[10px] font-bold grid place-items-center">٠</span></button>
         <button data-act="cart-open" class="relative p-2.5 rounded-full hover:bg-white/5" aria-label="سلة التسوق"><i data-lucide="shopping-bag" class="w-5 h-5"></i>
-          <span id="cartCount" class="num absolute -top-0.5 -left-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-[#17130C] text-[10px] font-bold grid place-items-center">٠</span></button>
+          <span id="cartCount" class="num absolute -top-0.5 -left-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-[var(--on-accent)] text-[10px] font-bold grid place-items-center">٠</span></button>
       </div>
     </div>
     <div id="searchMobile" class="gutter pb-3 sm:hidden" hidden><input id="search2" type="search" value="${esc(query)}" placeholder="ابحثي عن منتج…" class="w-full rounded-full glass py-2.5 px-4 text-sm focus:outline-none"></div>
@@ -118,7 +127,7 @@ function appHTML() {
           </div>
         </article>
         ${catTile(c1, 80)}
-        <a href="#shop" data-act="cat" data-cat="sale" class="glow card reveal rounded-[28px] p-6 flex flex-col justify-between min-h-[230px] relative" style="--d:140ms; background: linear-gradient(150deg, rgba(212,180,122,.22), rgba(212,180,122,.03) 60%); border: 1px solid rgba(212,180,122,.28);">
+        <a href="#shop" data-act="cat" data-cat="sale" class="glow card reveal rounded-[28px] p-6 flex flex-col justify-between min-h-[230px] relative" style="--d:140ms; background: linear-gradient(150deg, color-mix(in srgb, var(--gold) 22%, transparent), color-mix(in srgb, var(--gold) 3%, transparent) 60%); border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);">
           <p class="label text-gold">${esc(S.sale.label)}</p>
           <div><p class="font-display font-bold leading-none num" dir="ltr" style="font-size: clamp(3.4rem, 7vw, 5rem); text-align:right">${esc(S.sale.big)}</p><p class="text-muted text-sm mt-2">${esc(S.sale.text)}</p></div>
         </a>
@@ -150,8 +159,20 @@ function appHTML() {
   </main>`;
 }
 
+const lum = h => { const n = parseInt(hex(h).slice(1, 7).padEnd(6, '0'), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+function applyTheme() {
+  const t = S.theme, st = root.style;
+  ['bg', 'fg', 'muted', 'gold'].forEach(k => st.setProperty('--' + k, hex(t[k])));
+  st.setProperty('--on-accent', lum(t.gold) > .35 ? '#17130C' : '#FFFFFF');
+  const light = lum(t.bg) > .4;
+  st.colorScheme = light ? 'light' : 'dark';
+  root.classList.toggle('dark', !light);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = hex(t.bg);
+}
+
 function render() {
   uid = 0;
+  applyTheme();
   document.title = S.brand;
   $('app').innerHTML = appHTML();
   renderChips(); renderGrid(); updateBadges(); renderCart();
@@ -170,7 +191,7 @@ function card(p, i) {
   return `<article class="card glow glass reveal rounded-[24px] p-3 sm:p-4 flex flex-col gap-3 min-w-0" style="--d:${(i % 4) * 70}ms">
     <div class="relative rounded-[18px] overflow-hidden aspect-[4/5]" style="background:${artBg(c.hex)}">
       <button data-act="open" data-id="${p.id}" class="art block w-full h-full ${hasImg ? '' : 'p-5'}" aria-label="عرض ${esc(p.name)}">${pVisual(p, ci)}</button>
-      ${p.tag ? `<span class="absolute top-3 right-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${p.old ? 'bg-gold text-[#17130C]' : 'bg-black/40 backdrop-blur text-fg'}">${esc(p.tag)}</span>` : ''}
+      ${p.tag ? `<span class="absolute top-3 right-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${p.old ? 'bg-gold text-[var(--on-accent)]' : 'bg-black/40 backdrop-blur text-fg'}">${esc(p.tag)}</span>` : ''}
       <button data-act="fav" data-id="${p.id}" class="absolute top-2.5 left-2.5 w-9 h-9 rounded-full grid place-items-center bg-black/30 backdrop-blur hover:bg-black/50 transition" aria-label="المفضلة" aria-pressed="${fav}">
         <i data-lucide="heart" class="w-4 h-4 ${fav ? 'fill-[var(--gold)] text-gold' : ''}"></i></button>
       ${editing ? `<button data-act="edit-prod" data-id="${p.id}" class="absolute bottom-3 left-3 rounded-full px-3 py-1.5 text-xs font-bold btn-gold inline-flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5"></i> تعديل</button>` : ''}
@@ -431,6 +452,13 @@ const group = (title, body) => `<section class="space-y-4"><h4 class="sec-title"
 
 function editorBody() {
   if (tab === 'brand') return [
+    group('ألوان الموقع', `<div class="grid grid-cols-3 gap-2">${Object.entries(THEMES).map(([k, t]) => {
+        const on = ['bg', 'fg', 'muted', 'gold'].every(x => (S.theme[x] || '').toLowerCase() === t[x].toLowerCase());
+        return `<button data-act="ed-theme" data-k="${k}" class="rounded-xl p-2 text-xs border-2 ${on ? 'border-[var(--gold)]' : 'border-transparent'} flex flex-col items-center gap-1.5" style="background:${t.bg};color:${t.fg}">
+          <span class="flex gap-1"><span class="w-4 h-4 rounded-full" style="background:${t.gold}"></span><span class="w-4 h-4 rounded-full" style="background:${t.muted}"></span></span>${t.name}</button>`; }).join('')}</div>
+      <p class="text-xs text-muted">أو اختاري كل لون بنفسك:</p>
+      <div class="grid grid-cols-2 gap-3">${[['bg', 'الخلفية'], ['fg', 'الكلام'], ['gold', 'الزراير والتمييز'], ['muted', 'الكلام الفرعي']].map(([k, n]) => `<label class="flex items-center gap-2 text-sm">
+        <input type="color" value="${hex(S.theme[k])}" data-path="theme.${k}" data-type="text" class="w-10 h-10 rounded-lg bg-transparent border border-line cursor-pointer shrink-0">${n}</label>`).join('')}</div>`),
     group('البراند', fld('اسم البراند', 'brand') + fld('الاسم بالإنجليزي (اختياري)', 'brandLatin', { dir: 'ltr' })
       + imgFld('اللوجو (لو رفعتيه هيظهر بدل الاسم)', 'logo', { wide: true, hint: 'يفضّل PNG بخلفية شفافة.' })),
     group('الطلبات والشحن', fld('رقم الواتساب', 'whatsapp', { dir: 'ltr', ph: '2010xxxxxxxx', hint: 'بالكود الدولي من غير + ولا مسافات. مثال: 201012345678' })
@@ -460,7 +488,7 @@ function editorBody() {
     return `<button data-act="ed-back" class="text-sm text-muted hover:text-fg inline-flex items-center gap-1"><i data-lucide="arrow-right" class="w-4 h-4"></i> كل المنتجات</button>
     ${group('صور المنتج', `<div class="flex flex-wrap gap-3">${(p.images || []).map((im, j) => `<div class="relative thumb !w-20 !h-24"><img src="${src(im)}" alt="">
         <button data-act="ed-img-del" data-j="${j}" class="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/70 grid place-items-center" aria-label="حذف الصورة"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
-        ${j > 0 ? `<button data-act="ed-img-first" data-j="${j}" class="absolute bottom-1 inset-x-1 rounded-md bg-black/70 text-[10px] py-0.5">خليها الأولى</button>` : `<span class="absolute bottom-1 inset-x-1 rounded-md bg-gold text-[#17130C] text-[10px] py-0.5 text-center font-bold">الرئيسية</span>`}</div>`).join('')}
+        ${j > 0 ? `<button data-act="ed-img-first" data-j="${j}" class="absolute bottom-1 inset-x-1 rounded-md bg-black/70 text-[10px] py-0.5">خليها الأولى</button>` : `<span class="absolute bottom-1 inset-x-1 rounded-md bg-gold text-[var(--on-accent)] text-[10px] py-0.5 text-center font-bold">الرئيسية</span>`}</div>`).join('')}
         <label class="drop !w-20 !h-24 grid place-items-center text-center text-xs text-gold cursor-pointer"><span><i data-lucide="image-plus" class="w-5 h-5 mx-auto mb-1"></i>أضيفي صور</span>
           <input type="file" accept="image/*" multiple class="sr-only" data-upload-multi="${b}.images"></label></div>
         <small class="text-xs text-muted">ممكن ترفعي كذا صورة مرة واحدة. الصور بتتصغّر تلقائي عشان الموقع يفضل سريع.</small>`)}
@@ -544,6 +572,7 @@ async function editorAction(a, t) {
     case 'ed-open': openEditor(); return;
     case 'ed-close': closeEditor(); return;
     case 'ed-min': ed.classList.toggle('min'); renderEditor(true); return;
+    case 'ed-theme': { const th = THEMES[t.dataset.k]; if (th) S.theme = { bg: th.bg, fg: th.fg, muted: th.muted, gold: th.gold }; break; }
     case 'ed-tab': tab = t.dataset.tab; pIdx = -1; break;
     case 'ed-prod': pIdx = i; break;
     case 'ed-back': pIdx = -1; break;
