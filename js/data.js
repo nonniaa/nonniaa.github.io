@@ -1,8 +1,8 @@
 /* بيانات المتجر — اتعملت من لوحة التعديل (admin.html). ممكن تعدّليها بإيدك برضه. */
 window.STORE_DATA = {
  "v": 1,
- "brand": "نُوار",
- "brandLatin": "NOIR",
+ "brand": "نونيا",
+ "brandLatin": "nonniaa",
  "logo": "",
  "whatsapp": "201000000000",
  "currency": "ج.م",
@@ -322,5 +322,11 @@ window.STORE_DATA = {
    ],
    "desc": "قطن تويل بجيوب جانبية وأستك عند الرجل."
   }
- ]
+ ],
+ "theme": {
+  "bg": "#fafafa",
+  "fg": "#2A1A1D",
+  "muted": "#857176",
+  "gold": "#B4566A"
+ }
 };
