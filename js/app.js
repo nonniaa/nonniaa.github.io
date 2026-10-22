@@ -88,7 +88,7 @@ function appHTML() {
     <a href="#shop" data-act="cat" data-cat="${esc(c.id)}" class="glow glass card reveal rounded-[28px] p-6 flex flex-col justify-between min-h-[230px] relative" style="--d:${d}ms">
       ${src(c.image) ? `<div class="absolute inset-0 art"><img src="${src(c.image)}" alt=""></div><div class="absolute inset-0" style="background:linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,.1) 60%)"></div>`
         : `<div class="absolute -bottom-5 -left-5 w-[62%] h-[94%] art">${garment(c.art, c.color)}</div>`}
-      <div class="relative"><p class="label ${src(c.image) ? 'text-white/70' : 'text-muted'}">${esc(c.latin)}</p><h2 class="font-display text-2xl font-bold mt-1">${esc(c.name)}</h2></div>
+      <div class="relative"><p class="label ${src(c.image) ? 'text-white/70' : 'text-muted'}">${esc(c.latin)}</p><h2 class="text-[1.65rem] leading-tight mt-1" style="font-family:Tajawal,system-ui,sans-serif;font-weight:500;letter-spacing:.01em">${esc(c.name)}</h2></div>
       <span class="relative inline-flex items-center gap-1 text-sm text-gold">تسوّقي القسم <i data-lucide="arrow-up-left" class="w-4 h-4"></i></span>
     </a>`;
   return `
