@@ -13,6 +13,13 @@ const THEMES = {
   blush: { name: 'وردي فاتح',  bg: '#F8EEEE', fg: '#2A1A1D', muted: '#857176', gold: '#B4566A' }
 };
 let S = JSON.parse(JSON.stringify(window.STORE_DATA));
+const DEFAULT_GOVS = [
+  ['القاهرة', 60], ['الجيزة', 60], ['القليوبية', 65], ['الإسكندرية', 70], ['البحيرة', 75], ['الدقهلية', 75], ['الشرقية', 75],
+  ['الغربية', 75], ['المنوفية', 75], ['كفر الشيخ', 75], ['دمياط', 75], ['بورسعيد', 80], ['الإسماعيلية', 80], ['السويس', 80],
+  ['الفيوم', 85], ['بني سويف', 85], ['المنيا', 90], ['أسيوط', 95], ['سوهاج', 95], ['قنا', 100], ['الأقصر', 100], ['أسوان', 105],
+  ['البحر الأحمر', 110], ['مطروح', 110], ['الوادي الجديد', 120], ['شمال سيناء', 120], ['جنوب سيناء', 120]
+].map(([name, price]) => ({ name, price }));
+if (!Array.isArray(S.govs) || !S.govs.length) S.govs = DEFAULT_GOVS.map(g => ({ ...g }));
 S.theme = Object.assign({ bg: THEMES.noir.bg, fg: THEMES.noir.fg, muted: THEMES.noir.muted, gold: THEMES.noir.gold }, S.theme || {});
 const SAVED_JSON = JSON.stringify(S);
 
@@ -65,6 +72,7 @@ const pVisual = (p, ci, imgIdx = 0) => {
 
 // ---------- shopper state ----------
 let cart = ls.get('noir_cart', []);
+let gov = ls.get('noir_gov', '');
 let favs = new Set(ls.get('noir_favs', []));
 let filter = 'all', query = '';
 const chosen = {};
@@ -236,6 +244,9 @@ ui.innerHTML = `
   <div id="cartItems" class="flex-1 overflow-y-auto px-6 py-4 space-y-4"></div>
   <div id="cartFoot" class="px-6 py-5 border-t border-line space-y-3">
     <div class="flex justify-between text-sm text-muted"><span>المجموع</span><span id="subtotal" class="num"></span></div>
+    <label class="flex items-center justify-between gap-3 text-sm"><span class="text-muted shrink-0">المحافظة</span>
+      <select id="cartGov" class="inp !py-2 !w-auto min-w-0 flex-1 max-w-[220px]" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;color:var(--fg)"></select></label>
+    <p id="govHint" class="text-xs text-gold" hidden>اختاري المحافظة الأول عشان نحسب الشحن.</p>
     <div class="flex justify-between text-sm text-muted"><span>الشحن</span><span id="shipping" class="num"></span></div>
     <div id="freeShip" class="text-xs text-gold"></div>
     <div class="flex justify-between text-lg font-bold pt-1"><span>الإجمالي</span><span id="total" class="num"></span></div>
@@ -345,14 +356,19 @@ function renderCart() {
     </div>`;
   }).join('');
   const sub = cart.reduce((a, i) => a + prod(i.id).price * i.qty, 0);
+  const g = S.govs.find(x => x.name === gov);
+  if (!g) gov = '';
+  const sel = $('cartGov');
+  sel.innerHTML = `<option value="">اختاري المحافظة</option>` + S.govs.map(x => `<option value="${esc(x.name)}" ${x.name === gov ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const free = S.freeOver > 0 && sub >= S.freeOver;
-  const ship = free ? 0 : (+S.shipping || 0);
+  const ship = !g || free ? 0 : (+g.price || 0);
   $('subtotal').innerHTML = fmt(sub);
-  $('shipping').innerHTML = ship ? fmt(ship) : 'مجاني';
+  $('shipping').innerHTML = free ? 'مجاني' : !g ? '<span class="text-muted">حسب المحافظة</span>' : ship ? fmt(ship) : 'مجاني';
   $('total').innerHTML = fmt(sub + ship);
   $('freeShip').innerHTML = S.freeOver > 0 ? (free ? 'مبروك، الشحن عليكي مجاني' : `فاضلك ${fmt(S.freeOver - sub)} وتاخدي الشحن مجاني`) : '';
+  $('checkout').classList.toggle('opacity-60', !g);
   const lines = cart.map(i => { const p = prod(i.id); return `• ${p.name} | ${pColor(p, i.ci).name}${i.size ? ' | مقاس ' + i.size : ''} | عدد ${i.qty} = ${p.price * i.qty} ${S.currency}`; });
-  const msg = `أهلاً، عايزة أطلب من ${S.brand}:\n${lines.join('\n')}\n\nالمجموع: ${sub} ${S.currency}\nالشحن: ${ship ? ship + ' ' + S.currency : 'مجاني'}\nالإجمالي: ${sub + ship} ${S.currency}\n\nالاسم:\nالعنوان:\nالمحافظة:`;
+  const msg = `أهلاً، عايزة أطلب من ${S.brand}:\n${lines.join('\n')}\n\nالمجموع: ${sub} ${S.currency}\nالمحافظة: ${gov}\nالشحن: ${ship ? ship + ' ' + S.currency : 'مجاني'}\nالإجمالي: ${sub + ship} ${S.currency}\n\nالاسم:\nالعنوان بالتفصيل:\nرقم التليفون:`;
   $('checkout').href = `https://wa.me/${waNum()}?text=${encodeURIComponent(msg)}`;
   icons();
 }
@@ -400,6 +416,13 @@ document.addEventListener('click', e => {
     case 'm-add': if (mp.sizes.length && !mSize) { $('mSizeHint').hidden = false; break; } addToCart(mp, mColor, mSize || ''); closeModal(); break;
   }
 });
+document.addEventListener('change', e => {
+  if (e.target.id === 'cartGov') { gov = e.target.value; ls.set('noir_gov', gov); $('govHint').hidden = !!gov; renderCart(); }
+});
+document.addEventListener('click', e => {
+  const c = e.target.closest('#checkout');
+  if (c && !gov && cart.length) { e.preventDefault(); e.stopPropagation(); $('govHint').hidden = false; $('cartGov').focus(); }
+}, true);
 document.addEventListener('input', e => {
   if (e.target.id === 'search' || e.target.id === 'search2') {
     query = e.target.value;
@@ -428,7 +451,8 @@ const setP = (path, v) => { const ks = path.split('.'), last = ks.pop(); const o
 const dirty = () => JSON.stringify(S) !== SAVED_JSON;
 
 function buildData() {
-  return '/* بيانات المتجر — اتعملت من لوحة التعديل (admin.html). ممكن تعدّليها بإيدك برضه. */\nwindow.STORE_DATA = ' + JSON.stringify(S, null, 1) + ';\n';
+  const { tmpAll, ...clean } = S;
+  return '/* بيانات المتجر — اتعملت من لوحة التعديل (admin.html). ممكن تعدّليها بإيدك برضه. */\nwindow.STORE_DATA = ' + JSON.stringify(clean, null, 1) + ';\n';
 }
 
 const fld = (label, path, o = {}) => {
@@ -461,8 +485,15 @@ function editorBody() {
         <input type="color" value="${hex(S.theme[k])}" data-path="theme.${k}" data-type="text" class="w-10 h-10 rounded-lg bg-transparent border border-line cursor-pointer shrink-0">${n}</label>`).join('')}</div>`),
     group('البراند', fld('اسم البراند', 'brand') + fld('الاسم بالإنجليزي (اختياري)', 'brandLatin', { dir: 'ltr' })
       + imgFld('اللوجو (لو رفعتيه هيظهر بدل الاسم)', 'logo', { wide: true, hint: 'يفضّل PNG بخلفية شفافة.' })),
-    group('الطلبات والشحن', fld('رقم الواتساب', 'whatsapp', { dir: 'ltr', ph: '2010xxxxxxxx', hint: 'بالكود الدولي من غير + ولا مسافات. مثال: 201012345678' })
-      + `<div class="grid grid-cols-3 gap-3">${fld('سعر الشحن', 'shipping', { type: 'num' })}${fld('شحن مجاني فوق', 'freeOver', { type: 'num', hint: '٠ = مفيش' })}${fld('العملة', 'currency')}</div>`),
+    group('الطلبات', fld('رقم الواتساب', 'whatsapp', { dir: 'ltr', ph: '2010xxxxxxxx', hint: 'بالكود الدولي من غير + ولا مسافات. مثال: 201012345678' })
+      + `<div class="grid grid-cols-2 gap-3">${fld('شحن مجاني فوق', 'freeOver', { type: 'num', hint: '٠ = مفيش شحن مجاني' })}${fld('العملة', 'currency')}</div>`),
+    group('أسعار الشحن حسب المحافظة', `<p class="text-xs text-muted">العميل بيختار محافظته في السلة، والسعر بيتحسب لوحده. الأسعار الموجودة أمثلة، غيّريها لأسعار شركة الشحن بتاعتك.</p>
+      <div class="flex items-end gap-2">${fld('سعر واحد لكل المحافظات', 'tmpAll', { type: 'num', cls: 'flex-1' })}<button data-act="ed-gov-all" class="btn-ghost rounded-full px-4 py-2.5 text-sm shrink-0">طبّقي على الكل</button></div>
+      <div class="space-y-2">${S.govs.map((g, i) => `<div class="flex items-center gap-2">
+        <input type="text" value="${esc(g.name)}" data-path="govs.${i}.name" data-type="text" class="inp flex-1 min-w-0" aria-label="المحافظة">
+        <input type="number" inputmode="numeric" min="0" value="${esc(g.price)}" data-path="govs.${i}.price" data-type="num" class="inp !w-24 num" aria-label="سعر الشحن">
+        <button data-act="ed-gov-del" data-i="${i}" class="p-2 text-muted hover:text-fg" aria-label="حذف"><i data-lucide="x" class="w-4 h-4"></i></button></div>`).join('')}</div>
+      <button data-act="ed-gov-add" class="btn-ghost w-full rounded-full py-2.5 text-sm inline-flex items-center justify-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> محافظة أو منطقة جديدة</button>`),
     group('الأقسام', S.categories.map((c, i) => `<div class="glass rounded-2xl p-3 space-y-3">
         <div class="grid grid-cols-2 gap-3">${fld('اسم القسم', `categories.${i}.name`)}${fld('بالإنجليزي', `categories.${i}.latin`, { dir: 'ltr' })}</div>
         ${S.categories.length > 1 ? `<button data-act="ed-cat-del" data-i="${i}" class="text-xs ${confirmDel === 'cat' + i ? 'text-[var(--danger)] font-bold' : 'text-muted'} hover:text-fg">${confirmDel === 'cat' + i ? 'متأكدة؟ دوسي تاني للحذف (المنتجات هتتنقل لأول قسم)' : 'حذف القسم'}</button>` : ''}
@@ -591,13 +622,16 @@ async function editorAction(a, t) {
       S.products.splice(pIdx, 1); pIdx = -1; confirmDel = null; break;
     case 'ed-move': { const k = i + (+t.dataset.d); if (k < 0 || k >= S.products.length) return; [S.products[i], S.products[k]] = [S.products[k], S.products[i]]; break; }
     case 'ed-color-add': S.products[pIdx].colors.push({ hex: '#C9B79C', name: '' }); break;
+    case 'ed-gov-add': S.govs.push({ name: '', price: 0 }); break;
+    case 'ed-gov-del': S.govs.splice(i, 1); break;
+    case 'ed-gov-all': { const v = +S.tmpAll || 0; S.govs.forEach(g => g.price = v); break; }
     case 'ed-color-del': S.products[pIdx].colors.splice(j, 1); break;
     case 'ed-img-del': S.products[pIdx].images.splice(j, 1); break;
     case 'ed-img-first': { const im = S.products[pIdx].images.splice(j, 1)[0]; S.products[pIdx].images.unshift(im); break; }
     case 'ed-revert': S = JSON.parse(SAVED_JSON); pIdx = -1; confirmDel = null; filter = 'all'; break;
     case 'ed-save': return save();
   }
-  const keep = ['ed-clear', 'ed-cat-add', 'ed-cat-del', 'ed-color-add', 'ed-color-del', 'ed-img-del', 'ed-img-first', 'ed-move', 'ed-prod-del'].includes(a) && a !== 'ed-prod-del';
+  const keep = ['ed-gov-add', 'ed-gov-del', 'ed-gov-all', 'ed-clear', 'ed-cat-add', 'ed-cat-del', 'ed-color-add', 'ed-color-del', 'ed-img-del', 'ed-img-first', 'ed-move', 'ed-prod-del'].includes(a) && a !== 'ed-prod-del';
   renderEditor(keep); liveUpdate();
 }
 
