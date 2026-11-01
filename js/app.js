@@ -29,7 +29,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const hex = h => /^#[0-9a-f]{3,8}$/i.test(h || '') ? h : '#777777';
 const src = s => (typeof s === 'string' && (s.startsWith('data:image/') || /^(\.?\/)?images\/[\w\-./]+$/i.test(s) || s.startsWith('https://'))) ? s : '';
 const icons = () => { try { window.lucide && lucide.createIcons(); } catch {} };
-const fmt = n => (+n || 0).toLocaleString('ar-EG') + ' ' + esc(S.currency);
+const fmt = n => (+n || 0).toLocaleString('en-US') + ' ' + esc(S.currency);
 const catOf = id => S.categories.find(c => c.id === id);
 const prod = id => S.products.find(p => p.id === id);
 const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
@@ -65,7 +65,13 @@ function garment(type, color) {
 }
 const artBg = c => `radial-gradient(70% 60% at 50% 45%, ${hex(c)}55, transparent 70%), linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,0))`;
 const pColor = (p, ci) => (p.colors[ci] || p.colors[0] || { hex: '#777777', name: '' });
-const pVisual = (p, ci, imgIdx = 0) => {
+// which photo belongs to a color: the one chosen in the editor, else the photo in the same position, else the first
+const colorImg = (p, ci) => {
+  const n = (p.images || []).filter(src).length; if (!n) return 0;
+  const c = p.colors[ci], m = c && Number.isInteger(c.img) ? c.img : -1;
+  return m >= 0 && m < n ? m : (ci < n ? ci : 0);
+};
+const pVisual = (p, ci, imgIdx = colorImg(p, ci)) => {
   const im = src(p.images?.[imgIdx]);
   return im ? `<img src="${im}" alt="${esc(p.name)}" loading="lazy">` : garment(p.type, pColor(p, ci).hex);
 };
@@ -287,7 +293,7 @@ document.body.appendChild(ui);
 // ---------- modal ----------
 let mp = null, mColor = 0, mSize = null, mImg = 0;
 function openModal(p, fromAdd) {
-  mp = p; mColor = chosen[p.id] ?? 0; mSize = p.sizes.length === 1 ? p.sizes[0] : null; mImg = 0;
+  mp = p; mColor = chosen[p.id] ?? 0; mSize = p.sizes.length === 1 ? p.sizes[0] : null; mImg = colorImg(p, mColor);
   $('mCat').textContent = catOf(p.cat)?.name || '';
   $('mName').textContent = p.name;
   $('mPrice').innerHTML = fmt(p.price);
@@ -327,7 +333,7 @@ function renderCart() {
   cart = cart.filter(i => prod(i.id));
   const box = $('cartItems'), foot = $('cartFoot');
   const count = cart.reduce((a, i) => a + i.qty, 0);
-  $('cartTitleCount').textContent = count ? `(${count.toLocaleString('ar-EG')})` : '';
+  $('cartTitleCount').textContent = count ? `(${count.toLocaleString('en-US')})` : '';
   if (!cart.length) {
     box.innerHTML = `<div class="h-full grid place-items-center text-center py-16"><div>
       <span class="w-16 h-16 mx-auto rounded-full bg-white/5 grid place-items-center mb-4"><i data-lucide="shopping-bag" class="w-7 h-7 text-muted"></i></span>
@@ -346,7 +352,7 @@ function renderCart() {
         <div class="flex items-center justify-between mt-2 gap-2">
           <div class="flex items-center rounded-full border border-line">
             <button data-act="qty" data-key="${esc(i.key)}" data-d="1" class="w-8 h-8 grid place-items-center hover:text-gold" aria-label="زوّدي"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
-            <span class="num w-6 text-center text-sm">${i.qty.toLocaleString('ar-EG')}</span>
+            <span class="num w-6 text-center text-sm">${i.qty.toLocaleString('en-US')}</span>
             <button data-act="qty" data-key="${esc(i.key)}" data-d="-1" class="w-8 h-8 grid place-items-center hover:text-gold" aria-label="قلّلي"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
           </div>
           <span class="num text-sm font-bold">${fmt(p.price * i.qty)}</span>
@@ -374,8 +380,8 @@ function renderCart() {
 }
 function updateBadges(bump) {
   const cc = $('cartCount'); if (!cc) return;
-  cc.textContent = cart.reduce((a, i) => a + i.qty, 0).toLocaleString('ar-EG');
-  $('favCount').textContent = [...favs].filter(prod).length.toLocaleString('ar-EG');
+  cc.textContent = cart.reduce((a, i) => a + i.qty, 0).toLocaleString('en-US');
+  $('favCount').textContent = [...favs].filter(prod).length.toLocaleString('en-US');
   if (bump) { cc.classList.remove('bump'); void cc.offsetWidth; cc.classList.add('bump'); }
 }
 
@@ -410,7 +416,7 @@ document.addEventListener('click', e => {
     }
     case 'modal-bg': if (e.target === t) closeModal(); break;
     case 'm-close': closeModal(); break;
-    case 'm-color': mColor = +t.dataset.ci; paintModal(); break;
+    case 'm-color': mColor = +t.dataset.ci; mImg = colorImg(mp, mColor); paintModal(); break;
     case 'm-img': mImg = +t.dataset.i; paintModal(); break;
     case 'm-size': mSize = t.dataset.s; $('mSizes').querySelectorAll('.size').forEach(b => b.classList.toggle('on', b === t)); $('mSizeHint').hidden = true; break;
     case 'm-add': if (mp.sizes.length && !mSize) { $('mSizeHint').hidden = false; break; } addToCart(mp, mColor, mSize || ''); closeModal(); break;
@@ -532,7 +538,8 @@ function editorBody() {
     ${group('الألوان', p.colors.map((c, j) => `<div class="flex items-center gap-2">
         <input type="color" value="${hex(c.hex)}" data-path="${b}.colors.${j}.hex" data-type="text" class="w-11 h-11 rounded-xl bg-transparent border border-line cursor-pointer shrink-0" aria-label="اللون">
         <input type="text" value="${esc(c.name)}" data-path="${b}.colors.${j}.name" data-type="text" class="inp" placeholder="اسم اللون">
-        <button data-act="ed-color-del" data-j="${j}" class="p-2 text-muted hover:text-fg" aria-label="حذف اللون"><i data-lucide="x" class="w-4 h-4"></i></button></div>`).join('')
+        <button data-act="ed-color-del" data-j="${j}" class="p-2 text-muted hover:text-fg" aria-label="حذف اللون"><i data-lucide="x" class="w-4 h-4"></i></button></div>
+        ${(p.images || []).length ? `<div class="flex items-center gap-1.5 flex-wrap pe-1 -mt-1 mb-2"><span class="text-xs text-muted me-1">صورة اللون ده:</span>${p.images.map((im, k) => `<button data-act="ed-color-img" data-j="${j}" data-k="${k}" class="w-9 h-11 rounded-md overflow-hidden border-2 ${colorImg(p, j) === k ? 'border-[var(--gold)]' : 'border-transparent opacity-50 hover:opacity-100'}" aria-label="صورة ${k + 1}"><img src="${src(im)}" alt="" class="w-full h-full object-cover"></button>`).join('')}</div>` : ''}`).join('')
       + `<button data-act="ed-color-add" class="btn-ghost w-full rounded-full py-2.5 text-sm inline-flex items-center justify-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> لون جديد</button>`)}
     ${!src(p.images?.[0]) ? group('الرسمة البديلة', `<label class="fld"><span>لحد ما ترفعي صورة، تظهر رسمة لـ</span><select data-path="${b}.type" data-type="text" class="inp">${Object.entries(SHAPE_NAMES).map(([k, n]) => `<option value="${k}" ${k === p.type ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`) : ''}
     <button data-act="ed-prod-del" class="w-full rounded-full py-2.5 text-sm border ${confirmDel === 'p' ? 'border-[var(--danger)] text-[var(--danger)] font-bold' : 'border-line text-muted'} hover:text-fg">${confirmDel === 'p' ? 'متأكدة؟ دوسي تاني لحذف المنتج' : 'حذف المنتج'}</button>`;
@@ -558,7 +565,7 @@ function renderEditor(keepScroll) {
       </div>
     </div>
     <div class="flex gap-1 px-4 py-3 border-b border-line shrink-0">
-      ${[['brand', 'البراند'], ['front', 'الواجهة'], ['products', `المنتجات (${S.products.length.toLocaleString('ar-EG')})`]].map(([k, n]) => `<button data-act="ed-tab" data-tab="${k}" class="tab ${tab === k ? 'on' : ''}">${n}</button>`).join('')}
+      ${[['brand', 'البراند'], ['front', 'الواجهة'], ['products', `المنتجات (${S.products.length.toLocaleString('en-US')})`]].map(([k, n]) => `<button data-act="ed-tab" data-tab="${k}" class="tab ${tab === k ? 'on' : ''}">${n}</button>`).join('')}
     </div>
     <div id="edScroll" class="flex-1 overflow-y-auto px-5 py-5 space-y-8">${editorBody()}</div>
     <div class="px-5 py-4 border-t border-line space-y-2 shrink-0">
@@ -608,7 +615,7 @@ async function editorAction(a, t) {
     case 'ed-prod': pIdx = i; break;
     case 'ed-back': pIdx = -1; break;
     case 'ed-clear': setP(t.dataset.path, ''); break;
-    case 'ed-cat-add': { const n = S.categories.length + 1; S.categories.push({ id: 'cat' + Date.now().toString(36), name: 'قسم ' + n.toLocaleString('ar-EG'), latin: '', image: '', art: 'tee', color: '#5B6B7A' }); break; }
+    case 'ed-cat-add': { const n = S.categories.length + 1; S.categories.push({ id: 'cat' + Date.now().toString(36), name: 'قسم ' + n.toLocaleString('en-US'), latin: '', image: '', art: 'tee', color: '#5B6B7A' }); break; }
     case 'ed-cat-del':
       if (confirmDel !== 'cat' + i) { confirmDel = 'cat' + i; break; }
       { const gone = S.categories.splice(i, 1)[0]; S.products.forEach(p => { if (p.cat === gone.id) p.cat = S.categories[0].id; }); if (filter === gone.id) filter = 'all'; confirmDel = null; } break;
@@ -626,12 +633,13 @@ async function editorAction(a, t) {
     case 'ed-gov-del': S.govs.splice(i, 1); break;
     case 'ed-gov-all': { const v = +S.tmpAll || 0; S.govs.forEach(g => g.price = v); break; }
     case 'ed-color-del': S.products[pIdx].colors.splice(j, 1); break;
-    case 'ed-img-del': S.products[pIdx].images.splice(j, 1); break;
-    case 'ed-img-first': { const im = S.products[pIdx].images.splice(j, 1)[0]; S.products[pIdx].images.unshift(im); break; }
+    case 'ed-color-img': S.products[pIdx].colors[j].img = +t.dataset.k; break;
+    case 'ed-img-del': { const p = S.products[pIdx]; p.images.splice(j, 1); p.colors.forEach(c => { if (Number.isInteger(c.img)) { if (c.img === j) delete c.img; else if (c.img > j) c.img--; } }); break; }
+    case 'ed-img-first': { const p = S.products[pIdx]; p.colors.forEach((c, ci) => { const cur = colorImg(p, ci); c.img = cur === j ? 0 : cur < j ? cur + 1 : cur; }); const im = p.images.splice(j, 1)[0]; p.images.unshift(im); break; }
     case 'ed-revert': S = JSON.parse(SAVED_JSON); pIdx = -1; confirmDel = null; filter = 'all'; break;
     case 'ed-save': return save();
   }
-  const keep = ['ed-gov-add', 'ed-gov-del', 'ed-gov-all', 'ed-clear', 'ed-cat-add', 'ed-cat-del', 'ed-color-add', 'ed-color-del', 'ed-img-del', 'ed-img-first', 'ed-move', 'ed-prod-del'].includes(a) && a !== 'ed-prod-del';
+  const keep = ['ed-color-img', 'ed-gov-add', 'ed-gov-del', 'ed-gov-all', 'ed-clear', 'ed-cat-add', 'ed-cat-del', 'ed-color-add', 'ed-color-del', 'ed-img-del', 'ed-img-first', 'ed-move', 'ed-prod-del'].includes(a) && a !== 'ed-prod-del';
   renderEditor(keep); liveUpdate();
 }
 
@@ -657,7 +665,7 @@ ed.addEventListener('change', async e => {
     for (const f of files) out.push(await shrink(f, one && /logo/.test(one) ? 600 : 1100));
     if (one) setP(one, out[0]); else getP(many).push(...out);
     renderEditor(true); liveUpdate();
-    msg(`اتضافت ${out.length.toLocaleString('ar-EG')} صورة. متنسيش تدوسي حفظ.`, true);
+    msg(`اتضافت ${out.length.toLocaleString('en-US')} صورة. متنسيش تدوسي حفظ.`, true);
   } catch { msg('الصورة دي ما اتقريتش. جرّبي صورة JPG أو PNG تانية.'); }
 });
 
